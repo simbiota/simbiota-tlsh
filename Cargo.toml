@@ -1,0 +1,19 @@
+[package]
+name = "simbiota-tlsh"
+version = "0.0.1"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hex="0.4.3"
+
+
+[[bin]]
+name = "hash_file"
+
+[profile.release]
+lto = true
+panic = "abort"
+opt-level = 3
+overflow-checks = false
