@@ -17,7 +17,7 @@ impl TLSH {
         raw[0] = self.color;
         raw[1] = swap_byte(self.checksum);
         raw[2] = swap_byte(self.lvalue);
-        raw[3] = self.q_ratios;
+        raw[3] = swap_byte(self.q_ratios);
         for (r, c) in raw[4..].iter_mut().rev().zip(self.codes.iter()) {
             *r = *c;
         }
@@ -39,7 +39,7 @@ impl TLSH {
             color,
             checksum: swap_byte(hash_bytes[0]),
             lvalue: swap_byte(hash_bytes[1]),
-            q_ratios: hash_bytes[2],
+            q_ratios: swap_byte(hash_bytes[2]),
             codes,
         }
     }
