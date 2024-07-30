@@ -1,75 +1,158 @@
-use crate::tlsh::TLSH;
+use hex::{FromHex, ToHex};
 
-use ::hex::{FromHex, ToHex};
+use crate::ColoredTLSH;
+use crate::hash::TLSH;
 
 const BODY_SIZE: usize = 32;
 const HASH_SIZE: usize = 3 + BODY_SIZE;
+const HEX_HASH_SIZE: usize = HASH_SIZE * 2;
+const VERSIONED_HEX_HASH_SIZE: usize = HEX_HASH_SIZE + 2;
 const COLORED_HASH_SIZE: usize = 1 + HASH_SIZE;
+const HEX_COLORED_HASH_SIZE: usize = COLORED_HASH_SIZE * 2;
 
+#[allow(clippy::enum_variant_names)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum TLSHDigestError {
+    InvalidLength,
+    InvalidHex,
+    InvalidVersion,
+}
+
+#[inline(always)]
 fn swap_byte(x: u8) -> u8 {
     x >> 4 | x << 4
 }
 
 impl TLSH {
-    /// Exports the hash object as its 36-byte colored raw representation
-    pub fn to_raw(&self) -> [u8; COLORED_HASH_SIZE] {
-        let mut raw = [0u8; COLORED_HASH_SIZE];
-        raw[0] = self.color;
-        raw[1] = swap_byte(self.checksum);
-        raw[2] = swap_byte(self.lvalue);
-        raw[3] = swap_byte(self.q_ratios);
-        for (r, c) in raw[4..].iter_mut().rev().zip(self.codes.iter()) {
+    /// Exports the hash object as its 35-byte raw representation
+    pub fn to_raw(&self) -> [u8; HASH_SIZE] {
+        let mut raw = [0u8; HASH_SIZE];
+        raw[0] = swap_byte(self.checksum);
+        raw[1] = swap_byte(self.lvalue);
+        raw[2] = swap_byte(self.q_ratios);
+        for (r, c) in raw[3..].iter_mut().rev().zip(self.codes.iter()) {
             *r = *c;
         }
         raw
     }
 
-    /// Imports a hash object from its 35-byte or 36-byte (colored) raw representation
+    /// Imports a hash object from its 35-byte raw representation.
+    ///
+    /// Panics if the input is not a valid hash
     pub fn from_raw(raw: &[u8]) -> Self {
-        let (color, hash_bytes) = match raw.len() {
-            HASH_SIZE => (0, raw),
-            COLORED_HASH_SIZE => (raw[0], &raw[1..]),
-            _ => panic!("Trying to import hash from raw bytes with invalid length"),
-        };
-        let mut codes = [0u8; BODY_SIZE];
-        for (c, r) in codes.iter_mut().zip(hash_bytes[3..].iter().rev()) {
-            *c = *r;
-        }
-        Self {
-            color,
-            checksum: swap_byte(hash_bytes[0]),
-            lvalue: swap_byte(hash_bytes[1]),
-            q_ratios: swap_byte(hash_bytes[2]),
-            codes,
-        }
+        Self::try_from_raw(raw).unwrap()
     }
 
-    /// Exports the hash object as a digest string
+    /// Tries to import a hash object from its raw 35-byte representation
+    pub fn try_from_raw(raw: &[u8]) -> Result<Self, TLSHDigestError> {
+        if raw.len() != HASH_SIZE {
+            return Err(TLSHDigestError::InvalidLength)
+        }
+        let mut codes = [0u8; BODY_SIZE];
+        for (c, r) in codes.iter_mut().zip(raw[3..].iter().rev()) {
+            *c = *r;
+        }
+        Ok(Self {
+            checksum: swap_byte(raw[0]),
+            lvalue: swap_byte(raw[1]),
+            q_ratios: swap_byte(raw[2]),
+            codes,
+        })
+    }
+
+    /// Exports the hash object as a hex digest string
     pub fn to_digest(&self) -> String {
         self.to_raw().encode_hex_upper()
     }
 
-    /// Imports a hash object from a digest string
-    pub fn from_digest(digest: &str) -> Result<Self, String> {
-        if digest.len() == 2 * HASH_SIZE {
-            match <[u8; HASH_SIZE]>::from_hex(digest) {
-                Ok(raw) => Ok(Self::from_raw(&raw)),
-                _ => Err(String::from("Error parsing hex")),
-            }
-        } else if digest.len() == 2 * HASH_SIZE + 2 {
-            let prefix = &digest[..2];
-            let digest: String = match prefix {
-                "T1" => format!("00{}", &digest[2..]),
-                _ => digest.to_owned(),
-            };
-            match <[u8; COLORED_HASH_SIZE]>::from_hex(digest) {
-                Ok(raw) => Ok(Self::from_raw(&raw)),
-                _ => Err(String::from("Error parsing hex")),
-            }
-        } else {
-            return Err(String::from(
-                "Trying to import hash from digest string with invalid length",
-            ));
-        }
+    /// Export the hash object as a versioned (T1...) hex digest
+    pub fn to_digest_versioned(&self, version: i32) -> String {
+        format!("T{version}{}", self.to_digest())
     }
+
+    /// Tries to import a hash object from a digest string
+    ///
+    pub fn try_from_digest(digest: &str) -> Result<Self, TLSHDigestError> {
+        let tlsh_digest = match digest.len() {
+            HEX_HASH_SIZE => digest,
+            VERSIONED_HEX_HASH_SIZE if digest.starts_with("T1") => &digest[2..],
+            VERSIONED_HEX_HASH_SIZE if digest.starts_with("T") => return Err(TLSHDigestError::InvalidVersion),
+            _ => return Err(TLSHDigestError::InvalidLength),
+        };
+        let hash_bytes = hex::decode(tlsh_digest).map_err(|_| TLSHDigestError::InvalidHex)?;
+        Self::try_from_raw(&hash_bytes)
+    }
+
+    /// Import a hash object from a digest string
+    ///
+    /// Panics if the digest is invalid
+    pub fn from_digest(digest: &str) -> Self {
+        Self::try_from_digest(digest).unwrap()
+    }
+}
+
+impl ColoredTLSH {
+    /// Exports the colored hash object to its 36-byte representation
+    pub fn to_raw(&self) -> [u8; COLORED_HASH_SIZE] {
+        let mut raw = [0u8; COLORED_HASH_SIZE];
+        raw[0] = self.color;
+        let tlsh = self.tlsh.to_raw();
+        raw[1..].copy_from_slice(&tlsh);
+        raw
+    }
+
+    /// Tries to import a hash object from its raw 35-byte representation
+    pub fn try_from_raw(raw: &[u8]) -> Result<Self, TLSHDigestError> {
+        if raw.len() != COLORED_HASH_SIZE {
+            return Err(TLSHDigestError::InvalidLength);
+        }
+        let tlsh = TLSH::try_from_raw(&raw[1..])?;
+        Ok(Self {
+            color: raw[0],
+            tlsh,
+        })
+    }
+
+    /// Imports a hash object from its 35-byte raw representation.
+    ///
+    /// Panics if the input is not a valid hash
+    pub fn from_raw(raw: &[u8]) -> Self {
+        Self::try_from_raw(raw).unwrap()
+    }
+
+    /// Exports the hash object as a hex digest string
+    pub fn to_digest(&self) -> String {
+        self.to_raw().encode_hex_upper()
+    }
+
+    /// Tries to import a ColoredTLSH object from a digest string
+    ///
+    /// It supports loading the standard 70, the T1 versioned and the 72 long
+    /// colored TLSH digests
+    pub fn try_from_digest(digest: &str) -> Result<Self, TLSHDigestError> {
+        let (color, digest) = match digest.len() {
+            HEX_HASH_SIZE => (0, digest),
+            VERSIONED_HEX_HASH_SIZE if digest.starts_with("T1") => (0,&digest[2..]),
+            VERSIONED_HEX_HASH_SIZE if digest.starts_with("T") => return Err(TLSHDigestError::InvalidVersion),
+            HEX_COLORED_HASH_SIZE => {
+                let color = <[u8;1]>::from_hex(&digest[..2]).map_err(|_| TLSHDigestError::InvalidHex)?[0];
+                (color, &digest[2..])
+            },
+            _ => return Err(TLSHDigestError::InvalidLength),
+        };
+        let hash_bytes = hex::decode(digest).map_err(|_| TLSHDigestError::InvalidHex)?;
+        let tlsh = TLSH::try_from_raw(&hash_bytes)?;
+        Ok(Self {
+            color,
+            tlsh,
+        })
+    }
+
+    /// Import a ColoredTLSH object from a digest string
+    /// 
+    /// Panics if the digest is invalid
+    pub fn from_digest(digest: &str) -> Self {
+        Self::try_from_digest(digest).unwrap()
+    }
+    
 }

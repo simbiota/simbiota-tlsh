@@ -1,7 +1,4 @@
-use crate::{
-    tlsh::{EFF_BUCKETS, TLSH},
-    util::{calc_lvalue, Pearson},
-};
+use crate::{ColoredTLSH, hash::{EFF_BUCKETS, TLSH}, util::{calc_lvalue, Pearson}};
 
 const WINDOW_SIZE: usize = 5;
 const WINDOW_SIZE_M1: usize = WINDOW_SIZE - 1;
@@ -15,12 +12,12 @@ pub enum TLSHError {
     Variety,
 }
 
-struct Color {
+struct BuilderColorData {
     pearson: Pearson,
     a_bucket: [u32; 256],
     checksum: u8,
     sliding_window: [u8; WINDOW_SIZE],
-    finalized: Option<Result<TLSH, TLSHError>>,
+    finalized: Option<Result<ColoredTLSH, TLSHError>>,
 }
 
 /// Calculates multiple different-color TLSH hashes of data
@@ -33,8 +30,8 @@ struct Color {
 /// # Examples
 ///
 /// ```
-/// use ::simbiota_tlsh::{TLSHBuilder, TLSHError};
-/// let mut builder = TLSHBuilder::default();
+/// use ::simbiota_tlsh::{ColoredTLSHBuilder, TLSHError};
+/// let mut builder = ColoredTLSHBuilder::default();
 /// const DATA: [u8; 64] = [b'A'; 64];
 /// builder.update(&DATA[..40]);
 /// builder.update(&DATA[40..62]);
@@ -44,8 +41,8 @@ struct Color {
 /// ```
 ///
 /// ```
-/// use ::simbiota_tlsh::TLSHBuilder;
-/// let mut builder = TLSHBuilder::default();
+/// use ::simbiota_tlsh::ColoredTLSHBuilder;
+/// let mut builder = ColoredTLSHBuilder::default();
 /// let data: Vec<u8> = (1..100).collect();
 /// builder.update(&data);
 /// builder.finalize();
@@ -53,8 +50,8 @@ struct Color {
 /// ```
 ///
 /// ```
-/// use ::simbiota_tlsh::{TLSHBuilder, TLSHError};
-/// let mut builder = TLSHBuilder::default();
+/// use ::simbiota_tlsh::{ColoredTLSHBuilder, TLSHError};
+/// let mut builder = ColoredTLSHBuilder::default();
 /// let data: Vec<u8> = (1..49).collect();
 /// builder.update(&data);
 /// builder.finalize();
@@ -76,31 +73,45 @@ macro_rules! j_n {
 macro_rules! a_buckets {
     ($self: expr, $n: expr, $p2: expr, $p3: expr, $p4:expr, $p5:expr, $p6:expr) => {
         {
-            // WARNING: THIS IS WRONG FOR MULTIPLE COLORS
-            // FIXME: Fix salt calculation
-        let i_1 = $self.colors[$n].pearson.fast_b_mapping(49,$p2, $p3,$p4) as usize;
+        let i_1 = $self.colors[$n].pearson.fast_b_mapping(2,$p2, $p3,$p4) as usize;
             $self.colors[$n].a_bucket[i_1] += 1;
-        let i_2 = $self.colors[$n].pearson.fast_b_mapping(12,$p2,$p3,$p5) as usize;
+        let i_2 = $self.colors[$n].pearson.fast_b_mapping(3,$p2,$p3,$p5) as usize;
             $self.colors[$n].a_bucket[i_2] += 1;
-        let i_3 = $self.colors[$n].pearson.fast_b_mapping(178,$p2,$p4,$p5) as usize;
+        let i_3 = $self.colors[$n].pearson.fast_b_mapping(5,$p2,$p4,$p5) as usize;
             $self.colors[$n].a_bucket[i_3] += 1;
-        let i_4 = $self.colors[$n].pearson.fast_b_mapping(166,$p2,$p4,$p6) as usize;
+        let i_4 = $self.colors[$n].pearson.fast_b_mapping(7,$p2,$p4,$p6) as usize;
             $self.colors[$n].a_bucket[i_4] += 1;
-        let i_5 = $self.colors[$n].pearson.fast_b_mapping(84,$p2,$p3,$p6) as usize;
+        let i_5 = $self.colors[$n].pearson.fast_b_mapping(11,$p2,$p3,$p6) as usize;
             $self.colors[$n].a_bucket[i_5] += 1;
-        let i_6 = $self.colors[$n].pearson.fast_b_mapping(230,$p2,$p5,$p6) as usize;
+        let i_6 = $self.colors[$n].pearson.fast_b_mapping(13,$p2,$p5,$p6) as usize;
             $self.colors[$n].a_bucket[i_6] += 1;
-    }
+        }
+    };
+    ($self: expr, $n: expr, $p2: expr, $p3: expr, $p4:expr, $p5:expr, $p6:expr, 0) => {
+        {
+        let i_1 = $self.colors[$n].pearson.p0_fast_b_mapping(49,$p2, $p3,$p4) as usize;
+            $self.colors[$n].a_bucket[i_1] += 1;
+        let i_2 = $self.colors[$n].pearson.p0_fast_b_mapping(12,$p2,$p3,$p5) as usize;
+            $self.colors[$n].a_bucket[i_2] += 1;
+        let i_3 = $self.colors[$n].pearson.p0_fast_b_mapping(178,$p2,$p4,$p5) as usize;
+            $self.colors[$n].a_bucket[i_3] += 1;
+        let i_4 = $self.colors[$n].pearson.p0_fast_b_mapping(166,$p2,$p4,$p6) as usize;
+            $self.colors[$n].a_bucket[i_4] += 1;
+        let i_5 = $self.colors[$n].pearson.p0_fast_b_mapping(84,$p2,$p3,$p6) as usize;
+            $self.colors[$n].a_bucket[i_5] += 1;
+        let i_6 = $self.colors[$n].pearson.p0_fast_b_mapping(230,$p2,$p5,$p6) as usize;
+            $self.colors[$n].a_bucket[i_6] += 1;
+        }
     };
 }
 
 
-pub struct TLSHBuilder {
-    colors: Vec<Color>,
+pub struct ColoredTLSHBuilder {
+    colors: Vec<BuilderColorData>,
     data_len: usize,
 }
 
-impl TLSHBuilder {
+impl ColoredTLSHBuilder {
     /// Create an initialized instance of TLSHBuilder
     ///
     ///
@@ -111,7 +122,7 @@ impl TLSHBuilder {
         Self {
             colors: colors
                 .iter()
-                .map(|v| Color {
+                .map(|v| BuilderColorData {
                     pearson: Pearson::new(*v),
                     a_bucket: [0; 256],
                     checksum: 0,
@@ -134,26 +145,6 @@ impl TLSHBuilder {
         self.data_len = 0;
     }
 
-    #[allow(dead_code)]
-    fn update_window(&mut self, window: &[u8]) {
-        let update_b_mapping = |c: &mut Color, s: u8, i: usize, j: usize, k: usize| {
-            let h = c.pearson.fast_b_mapping(s, window[i], window[j], window[k]) as usize;
-            if h < EFF_BUCKETS {
-                c.a_bucket[h] += 1;
-            }
-        };
-        for c in self.colors.iter_mut() {
-            update_b_mapping(c, 2, 4, 3, 2);
-            update_b_mapping(c, 3, 4, 3, 1);
-            update_b_mapping(c, 5, 4, 2, 1);
-            update_b_mapping(c, 7, 4, 2, 0);
-            update_b_mapping(c, 11, 4, 3, 0);
-            update_b_mapping(c, 13, 4, 1, 0);
-            c.checksum = c
-                .pearson
-                .fast_b_mapping(0, window[4], window[3], c.checksum);
-        }
-    }
 
     fn rng_index(&self, index: usize) -> usize {
         (index.wrapping_add(WINDOW_SIZE)) % WINDOW_SIZE
@@ -163,6 +154,16 @@ impl TLSHBuilder {
         assert_eq!(WINDOW_SIZE, 5);
         let len = data.len();
         for n in 0..self.colors.len() {
+            let color = self.colors[n].pearson.color;
+            let bucket_fn = if color == 0 {
+                |slf: &mut Self, n: usize, p2: u8, p3: u8, p4: u8, p5: u8, p6: u8| {
+                    a_buckets!(slf, n, p2, p3, p4, p5, p6, 0);
+                }
+            } else {
+                |slf: &mut Self, n: usize, p2: u8, p3: u8, p4: u8, p5: u8, p6: u8| {
+                    a_buckets!(slf, n, p2, p3, p4, p5, p6);
+                }
+            };
             let mut j: usize = (self.data_len % (WINDOW_SIZE)) as i32 as usize;
             let mut fed_len = self.data_len;
             let mut checksum: u8 = self.colors[n].checksum;
@@ -181,20 +182,20 @@ impl TLSHBuilder {
                         let a7 = data[i + 3];
                         let a8 = data[i + 4];
 
-                        checksum = self.colors[n].pearson.fast_b_mapping(1, a4, a3, checksum);
-                        a_buckets!(self,n,a4,a3,a2,a1,a0);
+                        checksum = self.colors[n].pearson.p0_fast_b_mapping(1, a4, a3, checksum);
+                        bucket_fn(self,n,a4,a3,a2,a1,a0);
 
-                        checksum = self.colors[n].pearson.fast_b_mapping(1, a5, a4, checksum);
-                        a_buckets!(self,n, a5,a4,a3,a2,a1);
+                        checksum = self.colors[n].pearson.p0_fast_b_mapping(1, a5, a4, checksum);
+                        bucket_fn(self,n, a5,a4,a3,a2,a1);
 
-                        checksum = self.colors[n].pearson.fast_b_mapping(1, a6, a5, checksum);
-                        a_buckets!(self,n, a6,a5,a4,a3,a2);
+                        checksum = self.colors[n].pearson.p0_fast_b_mapping(1, a6, a5, checksum);
+                        bucket_fn(self,n, a6,a5,a4,a3,a2);
 
-                        checksum = self.colors[n].pearson.fast_b_mapping(1, a7, a6, checksum);
-                        a_buckets!(self,n, a7,a6,a5,a4,a3);
+                        checksum = self.colors[n].pearson.p0_fast_b_mapping(1, a7, a6, checksum);
+                        bucket_fn(self,n, a7,a6,a5,a4,a3);
 
-                        checksum = self.colors[n].pearson.fast_b_mapping(1, a8, a7, checksum);
-                        a_buckets!(self,n, a8, a7,a6,a5,a4);
+                        checksum = self.colors[n].pearson.p0_fast_b_mapping(1, a8, a7, checksum);
+                        bucket_fn(self,n, a8, a7,a6,a5,a4);
 
                         i += 5;
                         fed_len += 5;
@@ -206,7 +207,7 @@ impl TLSHBuilder {
                         let j_3 = j_n!(3,n,j,i,self,data);
                         let j_4 = j_n!(4,n,j,i,self,data);
 
-                        checksum = self.colors[n].pearson.fast_b_mapping(1, self.colors[n].sliding_window[j], self.colors[n].sliding_window[j_1], checksum);
+                        checksum = self.colors[n].pearson.p0_fast_b_mapping(1, self.colors[n].sliding_window[j], self.colors[n].sliding_window[j_1], checksum);
                         a_buckets!(self,n, self.colors[n].sliding_window[j], self.colors[n].sliding_window[j_1], self.colors[n].sliding_window[j_2], self.colors[n].sliding_window[j_3], self.colors[n].sliding_window[j_4]);
 
                         i += 1;
@@ -270,12 +271,14 @@ impl TLSHBuilder {
                 self.colors[n].finalized = Some(Err(TLSHError::Variety));
                 return;
             }
-            let mut tlsh = TLSH{
+            let mut colored_tlsh = ColoredTLSH {
                 color: 0,
-                checksum: 0,
-                lvalue: 0,
-                q_ratios: 0,
-                codes: [0; 32],
+                tlsh: TLSH {
+                    checksum: 0,
+                    lvalue: 0,
+                    q_ratios: 0,
+                    codes: [0; 32],
+                }
             };
             for i in 0..32 {
                 let mut h: u8 = 0;
@@ -289,17 +292,17 @@ impl TLSHBuilder {
                         h += 1 << (j * 2);
                     }
                 }
-                tlsh.codes[i] = h;
+                colored_tlsh.tlsh.codes[i] = h;
             }
 
-            tlsh.lvalue = lvalue;
+            colored_tlsh.tlsh.lvalue = lvalue;
             let q1r = (((q1 * 100) as f32) / (q3 as f32) % 16.0) as u8;
             let q2r = (((q2 * 100) as f32) / (q3 as f32) % 16.0) as u8;
-            tlsh.q_ratios = (q1r << 4) | q2r;
-            tlsh.checksum = self.colors[n].checksum;
-            tlsh.color =self.colors[n].pearson.color;
+            colored_tlsh.tlsh.q_ratios = (q2r << 4) | q1r;
+            colored_tlsh.tlsh.checksum = self.colors[n].checksum;
+            colored_tlsh.color =self.colors[n].pearson.color;
 
-            self.colors[n].finalized = Some(Ok(tlsh));
+            self.colors[n].finalized = Some(Ok(colored_tlsh));
         }
     }
 
@@ -314,7 +317,7 @@ impl TLSHBuilder {
         let p3 = EFF_BUCKETS - EFF_BUCKETS/4 - 1;
         let end = EFF_BUCKETS - 1;
         let mut q1: u32 = 0;
-        let mut q2: u32 = 0;
+        let q2: u32;
         let mut q3: u32 = 0;
 
         bucket_copy[..=end].copy_from_slice(&bucket[..=end]);
@@ -435,7 +438,7 @@ impl TLSHBuilder {
     /// # Panics
     ///
     /// The method panics if called without a `finalize` call since the last `update`.
-    pub fn get_hashes(&self) -> Vec<Result<TLSH, TLSHError>> {
+    pub fn get_hashes(&self) -> Vec<Result<ColoredTLSH, TLSHError>> {
         self.colors
             .iter()
             .map(|v| v.finalized.expect("Calling get_hashes before finalize"))
@@ -444,7 +447,7 @@ impl TLSHBuilder {
 
 }
 
-impl Default for TLSHBuilder {
+impl Default for ColoredTLSHBuilder {
     /// Create a `TLSHBuilder`, which only calculates the original TLSH hash of data
     ///
     ///
@@ -454,30 +457,74 @@ impl Default for TLSHBuilder {
     }
 }
 
+pub struct TLSHBuilder {
+    color_builder: ColoredTLSHBuilder
+}
+
+impl TLSHBuilder {
+    pub fn new() -> Self {
+        Self {
+            color_builder: ColoredTLSHBuilder::new(&[0])
+        }
+    }
+
+    pub fn update(&mut self, data: &[u8]) {
+        self.color_builder.update(data);
+    }
+
+    pub fn finalize(&mut self) {
+        self.color_builder.finalize();
+    }
+
+    pub fn get_hash(&self) -> Result<TLSH, TLSHError> {
+        self.color_builder.get_hashes()[0].map(|ch| ch.tlsh)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
-    fn test_neutral() {
-        const DATA: [u8; 1000] = [b'Y'; 1000];
-        let mut builder = TLSHBuilder::default();
-        builder.update(&DATA);
-
-        const RESULT: [u32; 256] = [0; 256];
-
-        assert_eq!(RESULT, builder.colors[0].a_bucket);
+    fn test_random_bytes() {
+        // Reference: T19411A5B6ECD2709D603191F2EA5016E0E51DA2AF05374F66BD80DB25B1604DB9C89110
+        let random_bytes = include_bytes!("../test/data/random.txt");
+        let mut tlsh_builder = TLSHBuilder::new();
+        tlsh_builder.update(random_bytes);
+        tlsh_builder.finalize();
+        let hash = tlsh_builder.get_hash().unwrap();
+        let digest = hash.to_digest();
+        assert_eq!(digest, "9411A5B6ECD2709D603191F2EA5016E0E51DA2AF05374F66BD80DB25B1604DB9C89110")
     }
 
     #[test]
-    fn test_69() {
-        const DATA: [u8; 5] = [0x95, 0xf9, 0x32, 0xc1, 0x25];
-        let mut builder = TLSHBuilder::default();
-        builder.update(&DATA);
-
-        let mut result = [0u32; 256];
-        result[9] = 6;
-
-        assert_eq!(result, builder.colors[0].a_bucket);
+    fn test_random_bytes_chunked() {
+        // Reference: T19411A5B6ECD2709D603191F2EA5016E0E51DA2AF05374F66BD80DB25B1604DB9C89110
+        let random_bytes = include_bytes!("../test/data/random.txt");
+        let mut tlsh_builder = TLSHBuilder::new();
+        for chunk in random_bytes.chunks(32) {
+            tlsh_builder.update(chunk);
+        }
+        tlsh_builder.finalize();
+        let hash = tlsh_builder.get_hash().unwrap();
+        let digest = hash.to_digest();
+        assert_eq!(digest, "9411A5B6ECD2709D603191F2EA5016E0E51DA2AF05374F66BD80DB25B1604DB9C89110")
+    }
+    
+    #[test]
+    fn test_ys() {
+        let y_bytes = include_bytes!("../test/data/y.tlsh.txt");
+        let mut tlsh_builder = TLSHBuilder::new();
+        tlsh_builder.update(y_bytes);
+        tlsh_builder.finalize();
+        assert!(matches!(tlsh_builder.get_hash().unwrap_err(), TLSHError::Variety));
+    }
+    
+    #[test]
+    fn test_len() {
+        let smal = [0;32];
+        let mut tlsh_builder = TLSHBuilder::new();
+        tlsh_builder.update(&smal);
+        tlsh_builder.finalize();
+        assert!(matches!(tlsh_builder.get_hash().unwrap_err(), TLSHError::Length));
     }
 }

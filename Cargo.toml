@@ -1,19 +1,24 @@
 [package]
 name = "simbiota-tlsh"
-version = "0.0.1"
+version = "1.0.0"
 edition = "2021"
+
+# publishing
+description = "A pure-rust implementation of Trendmicro's TLSH algorithm, featuring the same optimizations found in the reference implementation."
+authors = ["Ukatemi Technologies Ltd"]
+license-file = "LICENSE"
+homepage = "https://simbiota.io"
+repository = "https://github.com/simbiota/simbiota-tlsh"
+readme = "README.md"
+keywords = ["tlsh", "similarity-hash", "hash", "locality", "locality-sensitive"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 hex="0.4.3"
 
-
-[[bin]]
-name = "hash_file"
-
 [profile.release]
 lto = true
-panic = "abort"
 opt-level = 3
+codegen-units = 1
 overflow-checks = false

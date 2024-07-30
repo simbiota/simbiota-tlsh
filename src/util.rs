@@ -43,11 +43,19 @@ impl Pearson {
         h
     }
 
-    pub fn fast_b_mapping(&self, ms: u8, i: u8, j: u8, k: u8) -> u8 {
-        let h = self.v_table[(ms ^ i) as usize];
+    pub fn fast_b_mapping(&self, s: u8, i: u8, j: u8, k: u8) -> u8 {
+        let h = self.v_table[s as usize];
+        let h = self.v_table[(h ^ i) as usize];
         let h = self.v_table[(h ^ j) as usize];
         let h = self.v_table[(h ^ k) as usize];
         h
+    }
+    
+    pub fn p0_fast_b_mapping(&self, mapped_salt: u8, i: u8, j: u8, k: u8) -> u8 {
+        let h = self.v_table[(mapped_salt ^ i) as usize];
+        let h = self.v_table[(h ^ j) as usize];
+        let h = self.v_table[(h ^ k) as usize];
+        h 
     }
 }
 
