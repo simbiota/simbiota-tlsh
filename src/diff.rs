@@ -1,11 +1,27 @@
-use crate::{tlsh::TLSH, util::mod_diff};
+use crate::{ColoredTLSH, hash::TLSH, util::mod_diff};
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum TLSHDiffError {
+    ColorMismatch,
+}
+
+impl ColoredTLSH {
+    pub fn try_diff(a: &Self, b: &Self) -> Result<i32, TLSHDiffError> {
+        if a.color != b.color {
+            Err(TLSHDiffError::ColorMismatch)
+        } else {
+            Ok(TLSH::diff(&a.tlsh, &b.tlsh))
+        }
+    }
+    
+    pub fn diff(a: &Self, b: &Self) -> i32 {
+        Self::try_diff(a, b).unwrap()
+    }
+    
+}
 impl TLSH {
     /// Calculate the TLSH difference of two hash objects
     pub fn diff(a: &Self, b: &Self) -> i32 {
-        if a.color != b.color {
-            panic!("Comparing incompatible hashes");
-        }
         (Self::diff_checksum(a, b)
             + Self::diff_lvalue(a, b)
             + Self::diff_q_ratios(a, b)
