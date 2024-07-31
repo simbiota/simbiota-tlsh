@@ -14,11 +14,18 @@ keywords = ["tlsh", "similarity-hash", "hash", "locality", "locality-sensitive"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+name = "tlsh"
+path = "src/bin/cli.rs"
+
 [dependencies]
+clap = { version = "4.5.11", features = ["derive"] }
 hex="0.4.3"
+memmap2 = "0.9.4"
 
 [profile.release]
 lto = true
 opt-level = 3
 codegen-units = 1
 overflow-checks = false
+debug = 1

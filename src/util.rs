@@ -1,6 +1,5 @@
 use std::cmp::min;
 
-
 const V_TABLE: [u8; 256] = [
     1, 87, 49, 12, 176, 178, 102, 166, 121, 193, 6, 84, 249, 230, 44, 163, 14, 197, 213, 181, 161,
     85, 218, 80, 64, 239, 24, 226, 236, 142, 38, 200, 110, 177, 104, 103, 141, 253, 255, 50, 77,
@@ -47,15 +46,13 @@ impl Pearson {
         let h = self.v_table[s as usize];
         let h = self.v_table[(h ^ i) as usize];
         let h = self.v_table[(h ^ j) as usize];
-        let h = self.v_table[(h ^ k) as usize];
-        h
+        self.v_table[(h ^ k) as usize]
     }
     
     pub fn p0_fast_b_mapping(&self, mapped_salt: u8, i: u8, j: u8, k: u8) -> u8 {
         let h = self.v_table[(mapped_salt ^ i) as usize];
         let h = self.v_table[(h ^ j) as usize];
-        let h = self.v_table[(h ^ k) as usize];
-        h 
+        self.v_table[(h ^ k) as usize]
     }
 }
 

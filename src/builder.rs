@@ -344,7 +344,7 @@ impl ColoredTLSHBuilder {
         short_cut_right[spr] = (p2 + 1) as u32;
 
         let mut l = 0;
-        for i in 0..=spl {
+        for i in 0..(spl+1) {
             let mut r = short_cut_left[i] as usize;
             if r > p1 {
                 loop {
@@ -368,7 +368,7 @@ impl ColoredTLSHBuilder {
         }
 
         let mut r = end;
-        for i in 0..=spr {
+        for i in 0..(spr+1) {
             let mut l = short_cut_right[i] as usize;
             if l < p3  {
                 loop {
@@ -478,6 +478,12 @@ impl TLSHBuilder {
 
     pub fn get_hash(&self) -> Result<TLSH, TLSHError> {
         self.color_builder.get_hashes()[0].map(|ch| ch.tlsh)
+    }
+}
+
+impl Default for TLSHBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
