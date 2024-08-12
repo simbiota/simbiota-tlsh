@@ -4,6 +4,7 @@ use std::arch::x86_64::{
     _mm_add_epi32, _mm_extract_epi32,
 };
 
+#[inline(always)]
 pub(crate) fn diff_codes_avx2(i: __m256i, j: __m256i) -> u32 {
     unsafe {
         let mut res = _mm256_xor_si256(i, j);

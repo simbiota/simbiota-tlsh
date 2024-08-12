@@ -39,6 +39,7 @@ fn init_diff_codes() {
     }
 }
 
+#[inline(always)]
 pub fn tlsh_diff_codes(a: &[u8; 32], b: &[u8; 32]) -> u32 {
     unsafe {
         TLSH_DIFF_CODES_PTR(a,b)
