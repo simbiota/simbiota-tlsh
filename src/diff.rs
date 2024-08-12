@@ -59,12 +59,17 @@ impl TLSH {
         d
     }
     fn diff_codes(a: &Self, b: &Self) -> u32 {
-        let mut d: u32 = 0;
-        for (ac, bc) in a.codes.into_iter().zip(b.codes) {
-            d += DIFF_CODES[ac as usize][bc as usize];
-        }
-        d
+        crate::vec::tlsh_diff_codes(&a.codes, &b.codes)
     }
+}
+
+
+pub(crate) fn tlsh_diff_codes_lut(a: &[u8;32], b: &[u8; 32]) -> u32 {
+    let mut d: u32 = 0;
+    for (ac, bc) in a.into_iter().zip(b) {
+        d += DIFF_CODES[*ac as usize][*bc as usize];
+    }
+    d 
 }
 
 const DIFF_CODES: [[u32; 256]; 256] = [

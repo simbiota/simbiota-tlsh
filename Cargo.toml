@@ -20,6 +20,8 @@ path = "src/bin/cli.rs"
 
 [dependencies]
 clap = { version = "4.5.11", features = ["derive"] }
+cpufeatures = "0.2.12"
+ctor = "0.2.8"
 hex="0.4.3"
 memmap2 = "0.9.4"
 

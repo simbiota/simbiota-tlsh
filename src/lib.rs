@@ -3,6 +3,7 @@ mod diff;
 mod digest;
 mod hash;
 mod util;
+mod vec;
 
 pub use crate::{
     builder::{ColoredTLSHBuilder, TLSHBuilder, TLSHError},
