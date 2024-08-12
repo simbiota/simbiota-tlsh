@@ -4,6 +4,7 @@ mod digest;
 mod hash;
 mod util;
 mod vec;
+pub use vec::tlsh_diff_mode;
 
 pub use crate::{
     builder::{ColoredTLSHBuilder, TLSHBuilder, TLSHError},
