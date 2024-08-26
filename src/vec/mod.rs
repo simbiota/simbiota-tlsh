@@ -2,6 +2,7 @@ use crate::diff;
 use ctor::ctor;
 use std::sync::atomic::Ordering;
 
+mod calc;
 #[cfg(target_arch = "x86_64")]
 mod x86 {
     use ctor::ctor;
@@ -35,10 +36,18 @@ static mut TLSH_DIFF_CODES_MODE: &str = "LUT";
 #[ctor]
 fn init_diff_codes() {
     #[cfg(target_arch = "x86_64")]
-    if x86::HAS_AVX2.load(Ordering::Relaxed) {
+    if x86::HAS_AVX2.load(Ordering::Relaxed) && std::env::var("TLSH_DISABLE_AVX").is_err(){
         unsafe {
             TLSH_DIFF_CODES_PTR = x86::tlsh_diff_codes_avx2;
             TLSH_DIFF_CODES_MODE = "avx2";
+        }
+    }
+
+    // overrides
+    if std::env::var("TLSH_FORCE_CALC").is_ok() {
+        unsafe {
+            TLSH_DIFF_CODES_PTR = calc::tlsh_diff_codes_64;
+            TLSH_DIFF_CODES_MODE = "calc";
         }
     }
 }

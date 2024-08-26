@@ -5,6 +5,7 @@ use std::arch::x86_64::{
 };
 
 #[inline(always)]
+#[no_mangle]
 pub(crate) fn diff_codes_avx2(i: __m256i, j: __m256i) -> u32 {
     unsafe {
         let mut res = _mm256_xor_si256(i, j);

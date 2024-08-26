@@ -18,12 +18,15 @@ keywords = ["tlsh", "similarity-hash", "hash", "locality", "locality-sensitive"]
 name = "tlsh"
 path = "src/bin/cli.rs"
 
+[[bin]]
+name = "speedtest"
+path = "src/bin/speedtest.rs"
+
 [dependencies]
 clap = { version = "4.5.11", features = ["derive"] }
 cpufeatures = "0.2.12"
 ctor = "0.2.8"
 hex="0.4.3"
-memmap2 = "0.9.4"
 
 [profile.release]
 lto = true
