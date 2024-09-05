@@ -6,7 +6,7 @@ fn main() {
     let path = &args[1];
 
     let mut tlshs = Vec::new();
-    for line in std::fs::read_to_string(path).unwrap().lines() {
+    for line in std::fs::read_to_string(path).unwrap().lines().take(10) {
         let hash = TLSH::from_digest(line);
         tlshs.push(hash);
     }
@@ -26,6 +26,7 @@ fn main() {
                 for h1 in &tlshs {
                     for h2 in &tlshs {
                         let _diff = TLSH::diff(h1, h2);
+                        println!("{_diff}");
                     }
                 }
             });
