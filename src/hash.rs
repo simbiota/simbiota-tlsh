@@ -6,6 +6,7 @@ pub const EFF_BUCKETS: usize = 128;
 ///
 /// A hash object can be converted to and parsed from raw bytes or a digest string.
 #[derive(Copy, Clone, Debug)]
+#[repr(C)]
 pub struct TLSH {
     pub checksum: u8,
     pub lvalue: u8,
