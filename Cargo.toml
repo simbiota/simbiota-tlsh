@@ -18,9 +18,6 @@ keywords = ["tlsh", "similarity-hash", "hash", "locality", "locality-sensitive"]
 name = "tlsh"
 path = "src/bin/cli.rs"
 
-[[bin]]
-name = "speedtest"
-path = "src/bin/speedtest.rs"
 
 [dependencies]
 clap = { version = "4.5.11", features = ["derive"] }
