@@ -1,7 +1,5 @@
 use crate::diff;
 use ctor::ctor;
-use std::sync::atomic::Ordering;
-
 mod calc;
 #[cfg(target_arch = "x86_64")]
 mod x86 {
@@ -29,17 +27,20 @@ mod x86 {
     mod avx2;
 }
 
-type tlsh_diff_codes_fn = fn(a: &[u8; 32], b: &[u8; 32]) -> u32;
-static mut TLSH_DIFF_CODES_PTR: tlsh_diff_codes_fn = diff::tlsh_diff_codes_lut;
+type TlshDiffCodesFn = fn(a: &[u8; 32], b: &[u8; 32]) -> u32;
+static mut TLSH_DIFF_CODES_PTR: TlshDiffCodesFn = diff::tlsh_diff_codes_lut;
 static mut TLSH_DIFF_CODES_MODE: &str = "LUT";
 
 #[ctor]
 fn init_diff_codes() {
     #[cfg(target_arch = "x86_64")]
-    if x86::HAS_AVX2.load(Ordering::Relaxed) && std::env::var("TLSH_DISABLE_AVX").is_err(){
-        unsafe {
-            TLSH_DIFF_CODES_PTR = x86::tlsh_diff_codes_avx2;
-            TLSH_DIFF_CODES_MODE = "avx2";
+    {
+        use std::sync::atomic::Ordering;
+        if x86::HAS_AVX2.load(Ordering::Relaxed) && std::env::var("TLSH_DISABLE_AVX").is_err() {
+            unsafe {
+                TLSH_DIFF_CODES_PTR = x86::tlsh_diff_codes_avx2;
+                TLSH_DIFF_CODES_MODE = "avx2";
+            }
         }
     }
 

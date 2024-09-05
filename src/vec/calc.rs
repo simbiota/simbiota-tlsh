@@ -11,7 +11,7 @@ fn tlsh_diff_f3_64(i: u64, j: u64) -> u32 {
 
     let mask = (even_01 & odd_10) | (even_10 & odd_01);
 
-    res &= (!mask);
+    res &= !mask;
 
     let odd_dups = res & 0x3333333333333333;
     let mut three = odd_dups & (odd_dups << 1);
