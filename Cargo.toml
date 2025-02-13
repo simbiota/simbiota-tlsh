@@ -1,6 +1,6 @@
 [package]
 name = "simbiota-tlsh"
-version = "1.1.0"
+version = "1.1.1"
 edition = "2021"
 
 # publishing
@@ -20,10 +20,10 @@ path = "src/bin/cli.rs"
 
 
 [dependencies]
-clap = { version = "4.5.11", features = ["derive"] }
-cpufeatures = "0.2.12"
-ctor = "0.2.8"
-hex="0.4.3"
+clap = { version = "4.5", features = ["derive"] }
+cpufeatures = "0.2"
+ctor = "0.3"
+hex="0.4"
 
 [profile.release]
 lto = true
